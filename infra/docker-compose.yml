@@ -1,0 +1,39 @@
+services:
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+      POSTGRES_DB: community
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  realtime:
+    build: ../services/realtime
+    ports:
+      - "4000:4000"
+    depends_on:
+      - redis
+      - postgres
+    environment:
+      REDIS_URL: ${REDIS_URL}
+      DATABASE_URL: ${POSTGRES_URL}
+
+  bot:
+    build: ../services/bot
+    depends_on:
+      - realtime
+    environment:
+      REALTIME_URL: ${REALTIME_URL}
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+
+volumes:
+  postgres_data:
