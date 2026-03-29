@@ -1,4 +1,4 @@
-defmodule Realtime.GuildSupervisor do
+defmodule Realtime.Guilds.GuildSupervisor do
   use DynamicSupervisor
 
   def start_link(_) do
@@ -16,7 +16,7 @@ defmodule Realtime.GuildSupervisor do
 
       [] ->
         {:ok, pid} =
-          DynamicSupervisor.start_child(__MODULE__, {Realtime.GuildProcess, guild_id})
+          DynamicSupervisor.start_child(__MODULE__, {Realtime.Guilds.GuildProcess, guild_id})
 
         pid
     end

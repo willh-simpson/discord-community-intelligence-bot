@@ -1,4 +1,4 @@
-defmodule Realtime.EventQueue do
+defmodule Realtime.Ingestion.EventQueue do
   use GenServer
 
   def start_link(_) do
@@ -21,7 +21,7 @@ defmodule Realtime.EventQueue do
   defp process_queue(queue) do
     case :queue.out(queue) do
       {{:value, event}, rest} ->
-        Realtime.GuildRouter.route(event)
+        Realtime.Guilds.GuildRouter.route(event)
         {:noreply, rest}
 
       {:empty, queue} ->

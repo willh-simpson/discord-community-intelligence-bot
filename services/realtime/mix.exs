@@ -24,7 +24,9 @@ defmodule Realtime.MixProject do
       {:jason, "~> 1.4"},
       {:redix, "~> 1.2"},
       {:postgrex, "~> 0.17"},
-      {:ecto_sql, "~> 3.10"}
+      {:ecto_sql, "~> 3.10"},
+      {:phoenix_pubsub, "~> 2.1"},
+      {:phoenix, "~> 1.7"}
     ]
   end
 end
