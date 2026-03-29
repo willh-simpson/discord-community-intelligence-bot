@@ -17,6 +17,7 @@ defmodule Realtime.Ingestion.EventIngestor do
     Realtime.Analytics.RateTracker.ingest(event)
     Realtime.Analytics.TopTracker.ingest(event)
     Realtime.Analytics.SpamTracker.ingest(event)
+    Realtime.Analytics.AggregationTracker.ingest(event)
 
     {:noreply, state}
   end

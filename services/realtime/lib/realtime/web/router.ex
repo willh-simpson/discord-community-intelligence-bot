@@ -28,25 +28,36 @@ defmodule Realtime.Web.Router do
   get "/active/:channel_id" do
     topic = "channel:#{channel_id}"
 
-    timeout_seconds = 300 # stop tracking users after 5 minutes of inactivity
+    timeout_seconds = 300
     now = System.system_time(:second)
 
-    # active_count =
-    #   Realtime.Presence.Presence.list(topic)
-    #   |> Enum.filter(fn {_user, meta} ->
-    #     last_seen Map.get(meta, :last_seen, 0)
-    #     now - last_seen <= timeout_seconds
-    #   end)
-    #   |> Enum.count()
+    presences = Realtime.Presence.Presence.list(topic)
+
+    # remove expired users to free memory
+    Enum.each(presences, fn {user, meta} ->
+      last_seen = Map.get(meta, :last_seen, 0)
+
+      if now - last_seen > timeout_seconds do
+        Realtime.Presence.Presence.untrack(self(), topic, user)
+      end
+    end)
+
     active_count =
-      Enum.each(
-        Realtime.Presence.Presence.list(topic),
-        fn {user, meta} ->
-          if now - Map.get(meta, :last_seen, 0) > timeout_seconds do
-            Realtime.Presence.Presence.untrack(self(), topic, user)
-          end
+      Realtime.Presence.Presence.list(topic)
+      |> Enum.reduce(0, fn {user, %{metas: metas}}, acc ->
+        last_seen =
+        case metas do
+          [meta | _] -> Map.get(meta, :last_seen, 0)
+          _ -> 0
         end
-      )
+
+      if now - last_seen <= timeout_seconds do
+        acc + 1
+      else
+        Realtime.Presence.Presence.untrack(self(), topic, user)
+        acc
+      end
+    end)
 
     body =
       Jason.encode!(%{
@@ -119,6 +130,58 @@ defmodule Realtime.Web.Router do
 
     body = Jason.encode!(%{
       spammers: spammers
+    })
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
+  #
+  # channel activity per channel + activity spikes
+  #
+  get "/activity" do
+    conn = Plug.Conn.fetch_query_params(conn)
+
+    window =
+      conn.params["window"]
+      |> Realtime.Analytics.AggregationTracker.parse_window()
+
+    metrics = Realtime.Analytics.AggregationTracker.metrics(window)
+    spikes = Realtime.Analytics.AggregationTracker.spikes(metrics)
+
+    body = Jason.encode!(%{
+      window_seconds: window,
+      activity: metrics,
+      spikes: spikes
+    })
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
+  #
+  # sorts activity spikes per channel with activity spikes
+  #
+  get "/trending" do
+    conn = Plug.Conn.fetch_query_params(conn)
+
+    window =
+      conn.params["window"]
+      |> Realtime.Analytics.AggregationTracker.parse_window()
+
+    metrics = Realtime.Analytics.AggregationTracker.metrics(window)
+
+    trending =
+      metrics
+      |> Realtime.Analytics.AggregationTracker.spikes()
+      |> Enum.sort_by(fn {_channel, count} -> -count end)
+      |> Enum.into(%{})
+
+    body = Jason.encode!(%{
+      window_seconds: window,
+      trending: trending
     })
 
     conn
