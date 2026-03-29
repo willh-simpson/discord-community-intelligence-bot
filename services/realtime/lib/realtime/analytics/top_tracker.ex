@@ -1,4 +1,4 @@
-defmodule Realtime.TopTracker do
+defmodule Realtime.Analytics.TopTracker do
   use GenServer
 
   def init(state), do: {:ok, state}

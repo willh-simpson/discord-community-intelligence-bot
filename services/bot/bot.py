@@ -11,6 +11,10 @@ REALTIME_URL = os.environ.get("REALTIME_URL", "http://localhost:4000")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 GUILD_ID = 1486836077875691590
 
+# default response window is short so i defer it because the bot sometimes takes a little long.
+# after 10 seconds there is most likely an error, so forcing a timeout is necessary.
+RESPONSE_TIMEOUT = aiohttp.ClientTimeout(total=10)
+
 r = redis.from_url(REDIS_URL)
 
 intents = discord.Intents.default()
@@ -27,17 +31,22 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 async def active(interaction: discord.Interaction):
     await interaction.response.defer()
 
-    channel_id = str(interaction.channel_id)
+    try:
+        channel_id = str(interaction.channel_id)
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{REALTIME_URL}/active/{channel_id}") as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                count = data.get("active_users", 0)
-            else:
-                count = 0
+        async with aiohttp.ClientSession(timeout=RESPONSE_TIMEOUT) as session:
+            async with session.get(f"{REALTIME_URL}/active/{channel_id}") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    count = data.get("active_users", 0)
+                else:
+                    count = 0
+            
+                msg = f"Active users in this channel: {count}"
+    except Exception as e:
+        msg = f"Error fetching active user data: {str(e)}"
     
-    await interaction.followup.send(f"Active users in this channel: {count}")
+    await interaction.followup.send(msg)
 
 
 # /top
@@ -46,21 +55,24 @@ async def active(interaction: discord.Interaction):
 async def top(interaction: discord.Interaction):
     await interaction.response.defer()
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{REALTIME_URL}/top") as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                top_users = data.get("top", [])
-            else:
-                top_users = []
+    try:
+        async with aiohttp.ClientSession(timeout=RESPONSE_TIMEOUT) as session:
+            async with session.get(f"{REALTIME_URL}/top") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    top_users = data.get("top", [])
+                else:
+                    top_users = []
     
-    if not top_users:
-        msg = "No activity yet"
-    else:
-        # formats top users
-        msg_lines = [f"{i + 1}. <@{u['user']}>: {u['messages']} messages" for i, u in enumerate(top_users)]
-        msg = "\n".join(msg_lines)
-    
+        if not top_users:
+            msg = "No activity yet"
+        else:
+            # formats top users
+            msg_lines = [f"{i + 1}. <@{u['user']}>: {u['messages']} messages" for i, u in enumerate(top_users)]
+            msg = "\n".join(msg_lines)
+    except Exception as e:
+        msg = f"Error fetching top users: {str(e)}"
+
     await interaction.followup.send(msg)
 
 
@@ -70,37 +82,45 @@ async def top(interaction: discord.Interaction):
 async def rate(interaction: discord.Interaction, user: discord.Member):
     await interaction.response.defer()
 
-    user_id = str(user.id)
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{REALTIME_URL}/rate/{user_id}") as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                rate = data.get("rate", 0)
-            else:
-                rate = 0
+    try:
+        user_id = str(user.id)
+        async with aiohttp.ClientSession(timeout=RESPONSE_TIMEOUT) as session:
+            async with session.get(f"{REALTIME_URL}/rate/{user_id}") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    rate = data.get("rate", 0)
+                else:
+                    rate = 0
+            
+                msg = f"<@{user_id}> has a message rate of {rate:.2f} messages/min"
+    except Exception as e:
+        msg = f"Error fetching user message data: {str(e)}"
     
-    await interaction.followup.send(f"<@{user_id}> has a message rate of {rate:.2f} messages/min")
+    await interaction.followup.send(msg)
 
 
 # /spam
 @bot.tree.command(name="spam", description="Show list of users detected as spamming")
-@app_commands.guild(discord.Object(id=GUILD_ID))
+@app_commands.guilds(discord.Object(id=GUILD_ID))
 async def spam(interaction: discord.Interaction):
     await interaction.response.defer()
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{REALTIME_URL}/spam") as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                spammers = data.get("spammers", [])
-            else:
-                spammers = []
+    try:
+        async with aiohttp.ClientSession(timeout=RESPONSE_TIMEOUT) as session:
+            async with session.get(f"{REALTIME_URL}/spam") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    spammers = data.get("spammers", [])
+                else:
+                    spammers = []
     
-    if not spammers:
-        msg = "No spammers detected"
-    else:
-        msg_lines = [f"<@{u['user']}>: {u['messages']} messages in {u['window']}s" for u in spammers]
-        msg = "\n".join(msg_lines)
+        if not spammers:
+            msg = "No spammers detected"
+        else:
+            msg_lines = [f"<@{u['user']}>: {u['messages']} messages in {u['window']}s" for u in spammers]
+            msg = "\n".join(msg_lines)
+    except Exception as e:
+        msg = f"Error fetching spam data: {str(e)}"
     
     await interaction.followup.send(msg)
 

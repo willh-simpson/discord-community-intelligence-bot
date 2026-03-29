@@ -1,8 +1,7 @@
-defmodule Realtime.SpamTracker do
+defmodule Realtime.Analytics.RateTracker do
   use GenServer
 
-  @window_seconds 60
-  @threshold 5 # e.g., more than 5 messages in last minute = spam
+  @window_seconds 60 # e.g., messages per minute
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -15,11 +14,10 @@ defmodule Realtime.SpamTracker do
     GenServer.cast(__MODULE__, {:event, event})
   end
 
-  def spammers() do
-    GenServer.call(__MODULE__, :spammers)
+  def rate(user_id) do
+    GenServer.call(__MODULE__, {:rate, user_id})
   end
 
-  # Track user message timestamps
   def handle_cast(
         {:event, %{"type" => "MESSAGE_CREATE", "user_id" => user_id}},
         state
@@ -33,12 +31,12 @@ defmodule Realtime.SpamTracker do
 
   def handle_cast({:event, _}, state), do: {:noreply, state}
 
-  def handle_call(:spammers, _from, state) do
-    spammers =
+  def handle_call({:rate, user_id}, _from, state) do
+    count =
       state
-      |> Enum.filter(fn {_user, timestamps} -> length(timestamps) > @threshold end)
-      |> Enum.map(fn {user, _} -> user end)
+      |> Map.get(user_id, [])
+      |> length()
 
-    {:reply, spammers, state}
+    {:reply, count, state}
   end
 end

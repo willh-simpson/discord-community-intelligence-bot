@@ -1,4 +1,4 @@
-defmodule Realtime.GuildProcess do
+defmodule Realtime.Guilds.GuildProcess do
   use GenServer
 
   def start_link(guild_id) do
@@ -22,7 +22,7 @@ defmodule Realtime.GuildProcess do
   end
 
   defp handle_event(%{"type" => "MESSAGE_CREATE"}, state) do
-    Realtime.Redis.increment_messages(state.guild_id)
+    Realtime.Infrastructure.Redis.increment_messages(state.guild_id)
 
     %{state | messages: state.messages + 1}
   end

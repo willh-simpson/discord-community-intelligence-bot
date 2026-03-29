@@ -1,4 +1,4 @@
-defmodule Realtime.Redis do
+defmodule Realtime.Infrastructure.Redis do
   use GenServer
 
   def start_link(_) do
