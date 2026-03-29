@@ -18,6 +18,7 @@ defmodule Realtime.Application do
       Realtime.Analytics.RateTracker,
       Realtime.Analytics.TopTracker,
       Realtime.Analytics.SpamTracker,
+      Realtime.Analytics.AggregationTracker,
 
       Realtime.Guilds.GuildSupervisor,
 

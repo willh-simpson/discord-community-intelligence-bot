@@ -4,6 +4,7 @@ import os
 import discord
 from discord import app_commands
 from discord.ext import commands
+import emoji
 import requests
 import redis
 
@@ -14,6 +15,8 @@ GUILD_ID = 1486836077875691590
 # default response window is short so i defer it because the bot sometimes takes a little long.
 # after 10 seconds there is most likely an error, so forcing a timeout is necessary.
 RESPONSE_TIMEOUT = aiohttp.ClientTimeout(total=10)
+
+activity_spike_emoji = emoji.emojize(":fire:")
 
 r = redis.from_url(REDIS_URL)
 
@@ -26,7 +29,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 
 
 # /active
-@bot.tree.command(name="active", description="Show number of active users in this channel")
+@bot.tree.command(name="active", description="Number of users in this channel with activity in the last 5 minutes")
 @app_commands.guilds(discord.Object(id=GUILD_ID)) # immediately registers test server
 async def active(interaction: discord.Interaction):
     await interaction.response.defer()
@@ -50,7 +53,7 @@ async def active(interaction: discord.Interaction):
 
 
 # /top
-@bot.tree.command(name="top", description="Show top users by message count")
+@bot.tree.command(name="top", description="Top users by message count")
 @app_commands.guilds(discord.Object(id=GUILD_ID))
 async def top(interaction: discord.Interaction):
     await interaction.response.defer()
@@ -77,7 +80,7 @@ async def top(interaction: discord.Interaction):
 
 
 # /rate
-@bot.tree.command(name="rate", description="Show message rate for a given user")
+@bot.tree.command(name="rate", description="Messages/min for a given user")
 @app_commands.guilds(discord.Object(id=GUILD_ID))
 async def rate(interaction: discord.Interaction, user: discord.Member):
     await interaction.response.defer()
@@ -100,7 +103,7 @@ async def rate(interaction: discord.Interaction, user: discord.Member):
 
 
 # /spam
-@bot.tree.command(name="spam", description="Show list of users detected as spamming")
+@bot.tree.command(name="spam", description="Users with large number of messages in the past minute and their message rate")
 @app_commands.guilds(discord.Object(id=GUILD_ID))
 async def spam(interaction: discord.Interaction):
     await interaction.response.defer()
@@ -121,6 +124,70 @@ async def spam(interaction: discord.Interaction):
             msg = "\n".join(msg_lines)
     except Exception as e:
         msg = f"Error fetching spam data: {str(e)}"
+    
+    await interaction.followup.send(msg)
+
+
+@bot.tree.command(name="activity", description="Channel activity within window (default 24 hours)")
+@app_commands.guilds(discord.Object(id=GUILD_ID))
+async def activity(interaction: discord.Interaction, window: str = "24h"):
+    await interaction.response.defer()
+
+    try:
+        async with aiohttp.ClientSession(timeout=RESPONSE_TIMEOUT) as session:
+            async with session.get(f"{REALTIME_URL}/activity?window={window}") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+
+                    activity = data.get("activity", {})
+                    spikes = set(data.get("spikes", {}).keys())
+                else:
+                    activity = {}
+                    spikes = []
+            
+            if not activity and not spikes:
+                lines = ["No channel activity found"]
+            else:
+                lines = [f"**Channel Activity (last {window})**\n"]
+
+                # sort by activity descending
+                for channel, rate in sorted(activity.items(), key=lambda x: -x[1]):
+                    if channel in spikes:
+                        spike = f"{activity_spike_emoji}"
+                        multiplier = f"{spikes[channel]['multiplier']}x"
+                    else:
+                        spike = ""
+                        multiplier = ""
+
+                    lines.append(f"<#{channel:<10}> - {rate:>4} messages/min {spike} {multiplier}")
+    except Exception as e:
+        lines = [f"Error fetching channel activity data: {str(e)}"]
+    
+    await interaction.followup.send("\n".join(lines))
+
+
+@bot.tree.command(name="trending", description="Top channels with above average activity within window (default 24 hours)")
+@app_commands.guilds(discord.Object(id=GUILD_ID))
+async def trending(interaction: discord.Interaction, window: str = "24h"):
+    await interaction.response.defer()
+
+    try:
+        async with aiohttp.ClientSession(timeout=RESPONSE_TIMEOUT) as session:
+            async with session.get(f"{REALTIME_URL}/trending?window={window}") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+
+                    trending = set(data.get("trending", {}).keys())
+                else:
+                    trending = []
+            
+            if not trending:
+                msg = "No trending channels found"
+            else:
+                msg_lines = [f"<#{channel}> - {trending[channel]['rate']} {activity_spike_emoji} {trending[channel]['multiplier']}" for channel in trending]
+                msg = f"**Top Trending Channels (last {window})**\n" + "\n".join(msg_lines)
+    except Exception as e:
+        msg = f"Error fetching trending channel data: {str(e)}"
     
     await interaction.followup.send(msg)
 
