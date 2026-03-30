@@ -24,7 +24,7 @@ defmodule Realtime.Ingestion.EventIngestor do
       users: [event["user_id"]]
     })
 
-    Realtime.Analytics.DjangoClient.ingest([
+    Realtime.Web.DjangoClient.ingest([
       %{
         user_id: event["user_id"],
         channel_id: event["channel_id"],

@@ -17,25 +17,55 @@ defmodule Realtime.Moderation.SafetySignals do
   def alerts(), do: GenServer.call(__MODULE__, :alerts)
   def mod_risk(channel_id), do: GenServer.call(__MODULE__, {:mod_risk, channel_id})
 
+  def handle_info(:prune, state) do
+    now = System.system_time(:second)
+    cutoff = now - @retention_seconds
+
+    pruned = Enum.map(state, fn {key, data} ->
+      buckets = Map.get(data, :buckets, %{})
+
+      filtered = Enum.filter(buckets, fn {bucket, _count} ->
+        bucket_time = bucket * @bucket_seconds
+        bucket_time >= cutoff
+      end)
+      |> Enum.into(%{})
+
+      {key, Map.put(data, :buckets, filtered)}
+    end)
+    |> Enum.into(%{})
+
+    {:noreply, pruned}
+  end
+
   def handle_cast(
     {:ingest,
     %{
       "type" => "MESSAGE_CREATE",
       "channel_id" => channel
-    } = event},
+    }},
     state
   ) do
     now = System.system_time(:second)
     bucket = div(now, @bucket_seconds)
 
-    channel_data = Map.get(state, channel, %{})
-    messages = Map.get(channel_data, bucket, 0) + 1
-    channel_data = Map.put(channel_data, bucket, messages)
+    channel_state = Map.get(state, channel, %{
+      buckets: %{},
+      alerts: []
+    })
 
-    alerts = detect_alerts(channel, channel_data)
+    buckets = channel_state.buckets
+    count = Map.get(buckets, bucket, 0) + 1
+    buckets = Map.put(buckets, bucket, count)
+
+    updated_state = %{channel_state | buckets: buckets}
+
+    alerts = detect_alerts(channel, updated_state) ++ detect_burst(channel, buckets)
     send_alerts(alerts)
 
-    state = Map.put(state, channel, %{buckets: channel_data, alerts: alerts})
+    state = Map.put(state, channel, %{
+      buckets: buckets,
+      alerts: alerts
+    })
 
     {:noreply, state}
   end
@@ -87,7 +117,8 @@ defmodule Realtime.Moderation.SafetySignals do
 
   # stores spam, message bursts, suspicious joins, raids, etc.
   defp detect_alerts(channel, channel_data) do
-    recent_counts = Map.values(channel_data)
+    buckets = Map.get(channel_data, :buckets, %{})
+    recent_counts = Map.values(buckets)
     total_recent = Enum.sum(recent_counts)
 
     cond do
@@ -100,22 +131,31 @@ defmodule Realtime.Moderation.SafetySignals do
   end
 
   # detects sudden large spikes relative to previous activity
-  defp detect_burst(channel, channel_data) do
-    average = Enum.sum(Map.values(channel_data)) / max(map_size(channel_data), 1)
-    current = Map.get(channel_data, Map.keys(channel_data) |> Enum.max(), 0)
-
-    # trending channels are 2x above average and are not necessarily spam indicators.
-    # a particularly large spike might be an indicator of spam.
-    if current > 3.5 * average do
-      [%{type: :burst, channel: channel, count: current}]
-    else
+  defp detect_burst(channel, buckets) do
+    if map_size(buckets) == 0 do
       []
+    else
+      values = Map.values(buckets)
+      average = Enum.sum(values) / length(values)
+
+      current =
+        buckets
+        |> Map.values()
+        |> List.last()
+
+      # trending channels are 2x above average and are not necessarily spam indicators.
+      # a particularly large spike might be an indicator of spam.
+      if current > 3.5 * average do
+        [%{type: :burst, channel: channel, count: current}]
+      else
+        []
+      end
     end
   end
 
   defp send_alerts(alerts) do
     Enum.each(alerts, fn alert ->
-      Realtime.Analytics.DjangoClient.post_safety_alert(%{
+      Realtime.Web.DjangoClient.post_safety_alert(%{
         type: alert.type,
         channel: Map.get(alert, :channel),
         guild: Map.get(alert, :guild),

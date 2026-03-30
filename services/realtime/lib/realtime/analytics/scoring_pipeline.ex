@@ -1,5 +1,5 @@
 defmodule Realtime.Analytics.ScoringPipeline do
-  alias Realtime.Analytics.DjangoClient
+  alias Realtime.Web.DjangoClient
 
   def score_async(payload) do
     Task.start(fn ->

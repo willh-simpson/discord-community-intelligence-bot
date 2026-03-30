@@ -1,4 +1,4 @@
-defmodule Realtime.Analytics.DjangoClient do
+defmodule Realtime.Web.DjangoClient do
   @base_url "http://analytics:8000/api"
 
   def health() do
@@ -44,6 +44,17 @@ defmodule Realtime.Analytics.DjangoClient do
     HTTPoison.post(
       "#{@base_url}/safety-alert/",
       Jason.encode!(alert),
+      [{"Content-Type", "application/json"}]
+    )
+  end
+
+  def post_forecast(channel, forecast) do
+    HTTPoison.post(
+      "#{@base_url}/forecast/",
+      Jason.encode!(%{
+        channel: channel,
+        forecast: forecast
+      }),
       [{"Content-Type", "application/json"}]
     )
   end

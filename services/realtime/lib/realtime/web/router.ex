@@ -162,34 +162,6 @@ defmodule Realtime.Web.Router do
   end
 
   #
-  # sorts activity spikes per channel with activity spikes
-  #
-  get "/trending" do
-    conn = Plug.Conn.fetch_query_params(conn)
-
-    window =
-      conn.params["window"]
-      |> Realtime.Analytics.AggregationTracker.parse_window()
-
-    metrics = Realtime.Analytics.AggregationTracker.metrics(window)
-
-    trending =
-      metrics
-      |> Realtime.Analytics.AggregationTracker.spikes()
-      |> Enum.sort_by(fn {_channel, count} -> -count end)
-      |> Enum.into(%{})
-
-    body = Jason.encode!(%{
-      window_seconds: window,
-      trending: trending
-    })
-
-    conn
-    |> Plug.Conn.put_resp_content_type("application/json")
-    |> send_resp(200, body)
-  end
-
-  #
   # server activity insights
   #
   get "/insights" do
@@ -226,6 +198,78 @@ defmodule Realtime.Web.Router do
     body = Jason.encode!(%{
       channel: channel_id,
       mod_risk: score
+    })
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
+  get "/recommend" do
+    channels_stats = Realtime.Analytics.ChannelStats.get_all()
+    recs = Realtime.Analytics.Recommendations.recommend(channels_stats)
+
+    body = Jason.encode!(%{
+      recommendations: recs
+    })
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
+  get "/engage" do
+    channels_stats = Realtime.Analytics.ChannelStats.get_all()
+    dying_channels =
+      channels_stats
+      |> Enum.filter(fn {_channel, stats} ->
+        stats[:decline_rate] < -0.5 # 50% of previous rate
+      end)
+      |> Enum.into(%{})
+
+    body = Jason.encode!(%{
+      engage: dying_channels
+    })
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
+  get "/trending" do
+    conn = Plug.Conn.fetch_query_params(conn)
+
+    window =
+      conn.params["window"]
+      |> Realtime.Analytics.AggregationTracker.parse_window()
+
+    metrics = Realtime.Analytics.AggregationTracker.metrics(window)
+
+    spikes = Realtime.Analytics.AggregationTracker.spikes(metrics)
+
+    channels_stats = Realtime.Analytics.ChannelStats.get_all()
+
+    trending =
+      channels_stats
+      |> Enum.map(fn {channel, stats} ->
+        spike_score = Map.get(spikes, channel, 0)
+
+        combined_score = (spike_score * 0.6) + (stats.bursts * 0.4)
+
+        {channel, %{
+          score: combined_score,
+          spike_score: spike_score,
+          bursts: stats.bursts,
+          forecast: stats.forecast,
+          rate: stats.message_rate
+        }}
+      end)
+      |> Enum.sort_by(fn {_c, s} -> -s.score end)
+      |> Enum.into(%{})
+
+    body = Jason.encode!(%{
+      window_seconds: window,
+      trending: trending
     })
 
     conn
