@@ -23,9 +23,18 @@ services:
     depends_on:
       - redis
       - postgres
+      - analytics
     environment:
       REDIS_URL: ${REDIS_URL}
       DATABASE_URL: ${POSTGRES_URL}
+  
+  analytics:
+    build: ../services/analytics
+    container_name: analytics
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../services/analytics:/app
 
   bot:
     build: ../services/bot
