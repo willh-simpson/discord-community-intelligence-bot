@@ -22,7 +22,7 @@ defmodule Realtime.Analytics.DjangoClient do
 
   def extract_features(payload) do
     HTTPoison.post(
-      "#{@base_url}/extract_features/",
+      "#{@base_url}/extract-features/",
       Jason.encode!(payload),
       [{
         "Content-Type", "application/json"
@@ -37,6 +37,14 @@ defmodule Realtime.Analytics.DjangoClient do
       [{
         "Content-Type", "application/json"
       }]
+    )
+  end
+
+  def post_safety_alert(alert) do
+    HTTPoison.post(
+      "#{@base_url}/safety-alert/",
+      Jason.encode!(alert),
+      [{"Content-Type", "application/json"}]
     )
   end
 end

@@ -202,6 +202,37 @@ defmodule Realtime.Web.Router do
     |> send_resp(200, body)
   end
 
+  #
+  # alerts for all channels
+  #
+  get "/alerts" do
+    alerts = Realtime.Moderation.SafetySignals.alerts()
+
+    body = Jason.encode!(%{
+      alerts: alerts
+    })
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
+  #
+  # mod risk per channel
+  #
+  get "/mod-risk/:channel_id" do
+    score = Realtime.Moderation.SafetySignals.mod_risk(channel_id)
+
+    body = Jason.encode!(%{
+      channel: channel_id,
+      mod_risk: score
+    })
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
   match _ do
     send_resp(conn, 404, "not found")
   end
