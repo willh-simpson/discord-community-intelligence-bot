@@ -16,6 +16,8 @@ defmodule Realtime.Analytics.AggregationTracker do
   # public api endpoints
   def ingest(event), do: GenServer.cast(__MODULE__, {:ingest, event})
   def metrics(window_seconds), do: GenServer.call(__MODULE__, {:metrics, window_seconds})
+  def channels(), do: GenServer.call(__MODULE__, :channels)
+  def message_rate(channel), do: GenServer.call(__MODULE__, {:rate, channel})
 
   def handle_info(:prune, state) do
     now = System.system_time(:second)
@@ -85,6 +87,20 @@ defmodule Realtime.Analytics.AggregationTracker do
       |> Enum.into(%{})
 
     {:reply, metrics, state}
+  end
+
+  def handle_call(:channels, _from, state) do
+    {:reply, Map.keys(state), state}
+  end
+
+  def handle_call({:rate, channel}, _from, state) do
+    data = Map.get(state, channel, %{})
+    buckets = Map.get(data, :buckets, %{})
+
+    total = Enum.sum(Map.values(buckets))
+    rate = total / max(map_size(buckets), 1)
+
+    {:reply, rate, state}
   end
 
   # find spikes in channel activity where activity is 2x average

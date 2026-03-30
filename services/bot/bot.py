@@ -177,14 +177,17 @@ async def trending(interaction: discord.Interaction, window: str = "24h"):
                 if resp.status == 200:
                     data = await resp.json()
 
-                    trending = set(data.get("trending", {}).keys())
+                    trending = data.get("trending", {})
                 else:
-                    trending = []
+                    trending = {}
             
             if not trending:
                 msg = "No trending channels found"
             else:
-                msg_lines = [f"<#{channel}> - {trending[channel]['rate']} {activity_spike_emoji} {trending[channel]['multiplier']}" for channel in trending]
+                msg_lines = [
+                    f"<#{channel}> -> {stats['rate']:.2f} {activity_spike_emoji} {stats['bursts']:.2f}" 
+                    for channel, stats in trending.items()
+                ]
                 msg = f"**Top Trending Channels (last {window})**\n" + "\n".join(msg_lines)
     except Exception as e:
         msg = f"Error fetching trending channel data: {str(e)}"

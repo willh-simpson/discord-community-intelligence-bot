@@ -1,7 +1,7 @@
 defmodule Realtime.Analytics.AnalyticsWorker do
   use GenServer
 
-  alias Realtime.Analytics.DjangoClient
+  alias Realtime.Web.DjangoClient
 
   @refresh_interval :timer.seconds(10)
 

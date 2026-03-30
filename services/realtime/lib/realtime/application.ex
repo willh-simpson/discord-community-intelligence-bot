@@ -20,6 +20,8 @@ defmodule Realtime.Application do
       Realtime.Analytics.SpamTracker,
       Realtime.Analytics.AggregationTracker,
       Realtime.Analytics.AnalyticsWorker,
+      Realtime.Analytics.ChannelStats,
+      Realtime.Analytics.Forecaster,
 
       Realtime.Moderation.SafetySignals,
 
