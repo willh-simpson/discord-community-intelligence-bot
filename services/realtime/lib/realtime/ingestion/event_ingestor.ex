@@ -18,10 +18,12 @@ defmodule Realtime.Ingestion.EventIngestor do
     Realtime.Analytics.TopTracker.ingest(event)
     Realtime.Analytics.SpamTracker.ingest(event)
     Realtime.Analytics.AggregationTracker.ingest(event)
+
     Realtime.Analytics.ScoringPipeline.score_async(%{
       messages: [event],
       users: [event["user_id"]]
     })
+
     Realtime.Analytics.DjangoClient.ingest([
       %{
         user_id: event["user_id"],
@@ -30,6 +32,8 @@ defmodule Realtime.Ingestion.EventIngestor do
         timestamp: DateTime.utc_now()
       }
     ])
+
+    Realtime.Moderation.SafetySignals.ingest(event)
 
     {:noreply, state}
   end

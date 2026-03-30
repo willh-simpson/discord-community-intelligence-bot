@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db.models import Count, Avg
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import MessageEvent
+from .models import MessageEvent, SafetyAlert
 
 @api_view(['GET'])
 def health(request):
@@ -98,3 +98,20 @@ def ingest(request):
     MessageEvent.objects.bulk_create(objs)
 
     return Response({"status": "ok"})
+
+
+@api_view(['POST'])
+def safety_alert(request):
+    data = request.data
+
+    alert = SafetyAlert.objects.create(
+        alert_type=data.get("type"),
+        channel_id=data.get("channel"),
+        guild_id=data.get("guild"),
+        count=data.get("count", 0)
+    )
+
+    return Response({
+        "status": "ok",
+        "id": alert.id
+    })

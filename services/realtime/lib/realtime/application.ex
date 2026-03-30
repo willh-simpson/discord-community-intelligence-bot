@@ -21,6 +21,8 @@ defmodule Realtime.Application do
       Realtime.Analytics.AggregationTracker,
       Realtime.Analytics.AnalyticsWorker,
 
+      Realtime.Moderation.SafetySignals,
+
       Realtime.Guilds.GuildSupervisor,
 
       Realtime.Infrastructure.Redis,
