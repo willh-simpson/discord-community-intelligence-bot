@@ -6,7 +6,7 @@ defmodule Realtime.Infrastructure.Redis do
   end
 
   def init(_) do
-    {:ok, conn} = Redix.start_link(System.get_env("REDIS_URL"))
+    {:ok, conn} = Redix.start_link(System.get_env("REDIS_URL") || "redis://localhost:6379")
     {:ok, conn}
   end
 

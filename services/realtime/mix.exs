@@ -21,6 +21,7 @@ defmodule Realtime.MixProject do
   defp deps do
     [
       {:plug_cowboy, "~> 2.6"},
+      {:httpoison, "~> 2.2"},
       {:jason, "~> 1.4"},
       {:redix, "~> 1.2"},
       {:postgrex, "~> 0.17"},

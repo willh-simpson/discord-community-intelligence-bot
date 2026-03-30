@@ -189,6 +189,19 @@ defmodule Realtime.Web.Router do
     |> send_resp(200, body)
   end
 
+  #
+  # server activity insights
+  #
+  get "/insights" do
+    data = Realtime.Analytics.AnalyticsWorker.get()
+
+    body = Jason.encode!(data)
+
+    conn
+    |> Plug.Conn.put_resp_content_type("application/json")
+    |> send_resp(200, body)
+  end
+
   match _ do
     send_resp(conn, 404, "not found")
   end
