@@ -5,6 +5,9 @@ defmodule Realtime.Application do
   def start(_type, _args) do
     children = [
       {Registry, keys: :unique, name: Realtime.Registry},
+      {Registry, keys: :unique, name: Realtime.GuildRegistry},
+      {Registry, keys: :unique, name: Realtime.ChannelRegistry},
+      {Registry, keys: :unique, name: Realtime.ChannelSupervisorRegistry},
       {Plug.Cowboy, scheme: :http, plug: Realtime.Web.Router, options: [port: 4000]},
       {Phoenix.PubSub, name: Realtime.PubSub},
 
@@ -25,7 +28,7 @@ defmodule Realtime.Application do
 
       Realtime.Moderation.SafetySignals,
 
-      Realtime.Guilds.GuildSupervisor,
+      Realtime.Distributed.GuildSupervisor,
 
       Realtime.Infrastructure.Redis,
       Realtime.Infrastructure.Repo,

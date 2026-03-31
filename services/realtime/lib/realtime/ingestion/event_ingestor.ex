@@ -17,7 +17,7 @@ defmodule Realtime.Ingestion.EventIngestor do
     Realtime.Analytics.RateTracker.ingest(event)
     Realtime.Analytics.TopTracker.ingest(event)
     Realtime.Analytics.SpamTracker.ingest(event)
-    Realtime.Analytics.AggregationTracker.ingest(event)
+    # Realtime.Analytics.AggregationTracker.ingest(event)
 
     Realtime.Analytics.ScoringPipeline.score_async(%{
       messages: [event],
@@ -33,7 +33,7 @@ defmodule Realtime.Ingestion.EventIngestor do
       }
     ])
 
-    Realtime.Moderation.SafetySignals.ingest(event)
+    # Realtime.Moderation.SafetySignals.ingest(event)
 
     {:noreply, state}
   end
